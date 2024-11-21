@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+    <style>
+        body {
+            display: flex;
+        }
+        .sidebar {
+            width: 250px;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .main-content {
+            flex: 1;
+            padding: 20px;
+        }
+        .logo {
+            font-size: 2em;
+            color: blue;
+            margin-bottom: 20px;
+        }
+        .nav-icon {
+            margin-right: 10px;
+        }
+        .action-icon {
+            cursor: pointer;
+            margin: 5px;
+        }
+        .action-icon:hover {
+            color: blue;
+        }
+        .action-icon.active, .action-text.active {
+            color: orange;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo"><a href="/home" style="color: blue; text-decoration: none;"><strong>2FRIEND</strong></a></div>
+        <nav>
+            <ul>
+                <li><a href="/home"><i class="fas fa-home nav-icon"></i> Home</a></li>
+                <li><a href="/notifications"><i class="fas fa-bell nav-icon"></i> Notifications</a></li>
+                <li><a href="/inbox"><i class="fas fa-envelope nav-icon"></i> Inbox</a></li>
+                <li><a href="/posts/bookmarks"><i class="fas fa-bookmark nav-icon"></i> Bookmarks</a></li>
+                <li><a href="/profile"><i class="fas fa-user nav-icon"></i> Profile</a></li>
+                <li><a href="/logout"><i class="fas fa-sign-out-alt nav-icon"></i> Log Out</a></li>
+            </ul>
+        </nav>
+    </div>
+    <div class="main-content">
+        <h1>Home</h1>
+        <form action="/posts/create" method="POST" enctype="multipart/form-data">
+            <textarea name="content" placeholder="What's happening?" required></textarea>
+            <input type="file" name="files" accept="image/*,video/*" multiple>
+            <button type="submit">Post</button>
+        </form>
+        <ul>
+            <% posts.forEach(post => { %>
+                <li id="post-<%= post._id %>">
+                    <strong><%= post.author %></strong>: <%= post.content %>
+                    <ul>
+                        <% post.images.forEach(image => { %>
+                            <li><img src="/uploads/<%= image %>" alt="Post Image" width="200"></li>
+                        <% }) %>
+                    </ul>
+                    <% if (post.video) { %>
+                        <video src="/uploads/<%= post.video %>" controls width="400"></video>
+                    <% } %>
+                    <i class="fas fa-arrow-up action-icon <%= post.upvoters.includes(user._id) ? 'active' : '' %>" onclick="handleVote('<%= post._id %>', 'upvote')"></i> <span id="upvote-<%= post._id %>"><%= post.upvotes %></span>
+                    <i class="fas fa-arrow-down action-icon <%= post.downvoters.includes(user._id) ? 'active' : '' %>" onclick="handleVote('<%= post._id %>', 'downvote')"></i> <span id="downvote-<%= post._id %>"><%= post.downvotes %></span>
+                    <i class="fas fa-comment action-icon" onclick="window.location.href='/posts/<%= post._id %>/comments'"></i>
+                    <i class="fas fa-bookmark action-icon <%= user.bookmarks.some(b => b.toString() === post._id.toString()) ? 'active' : '' %>" onclick="handleBookmark('<%= post._id %>')" id="bookmark-<%= post._id %>"></i>
+                    <% if (post.author === user.username) { %>
+                        <i class="fas fa-trash-alt action-icon" onclick="deletePost('<%= post._id %>')"></i>
+                    <% } %>
+                    <ul>
+                        <% post.comments.forEach(comment => { %>
+                            <li><strong><%= comment.author %></strong>: <%= comment.content %></li>
+                        <% }) %>
+                    </ul>
+                </li>
+            <% }) %>
+        </ul>        
+    </div>
+    <script>
+        function handleVote(postId, voteType) {
+            fetch(`/posts/${postId}/${voteType}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById(`upvote-${postId}`).innerText = data.upvote;
+                document.getElementById(`downvote-${postId}`).innerText = data.downvote;
+                
+                // Update the icon states
+                document.querySelector(`.fa-arrow-up[onclick="handleVote('${postId}', 'upvote')"]`).classList.toggle('active', data.upvote > 0);
+                document.querySelector(`.fa-arrow-down[onclick="handleVote('${postId}', 'downvote')"]`).classList.toggle('active', data.downvote > 0);
+            });
+        }
+
+        function deletePost(postId) {
+            fetch(`/posts/${postId}/delete`, {
+                method: 'DELETE'
+            })
+            .then(() => {
+                document.getElementById(`post-${postId}`).remove();
+            });
+        }
+
+        function handleBookmark(postId) {
+            fetch(`/posts/${postId}/bookmark`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const isBookmarked = data.bookmarks.includes(postId);
+                document.getElementById(`bookmark-${postId}`).classList.toggle('active', isBookmarked);
+            })
+            .catch(error => console.error('Error handling bookmark:', error));
+        }
+
+        console.log("User bookmarks: <%= JSON.stringify(user.bookmarks) %>");
+    </script>
+</body>
+</html>
